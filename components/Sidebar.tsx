@@ -19,8 +19,6 @@ import {
 import { formatArea, formatDistance, calculatePolygonCentroid, calculatePolygonArea, calculatePolygonPerimeter } from "@/utils/geoHelpers";
 
 interface SidebarProps {
-  mapboxToken: string;
-  onTokenChange: (token: string) => void;
   features: any[];
   onDeleteFeature: (id: string) => void;
   selectedFeatureId: string | null;
@@ -33,8 +31,6 @@ interface SidebarProps {
 }
 
 export default function Sidebar({
-  mapboxToken,
-  onTokenChange,
   features,
   onDeleteFeature,
   selectedFeatureId,
@@ -45,21 +41,8 @@ export default function Sidebar({
   onResetAnalysis,
   activeStep
 }: SidebarProps) {
-  const [tokenInput, setTokenInput] = useState(mapboxToken);
-  const [showSettings, setShowSettings] = useState(false);
   const [modelType, setModelType] = useState("rice-seg");
   const [confidence, setConfidence] = useState(0.75);
-
-  const handleTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onTokenChange(tokenInput.trim());
-    setShowSettings(false);
-  };
-
-  const handleClearToken = () => {
-    setTokenInput("");
-    onTokenChange("");
-  };
 
   const handleExportGeoJSON = () => {
     if (features.length === 0) return;
@@ -131,55 +114,17 @@ export default function Sidebar({
         </span>
       </div>
 
-      {/* Collapsible Settings / Mapbox Token Panel */}
-      <div className="border-b border-white/5">
-        <button
-          onClick={() => setShowSettings(prev => !prev)}
-          className="w-full px-6 py-3 flex items-center justify-between text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.02] transition-colors"
-        >
+      {/* Map Provider Status Panel */}
+      <div className="border-b border-white/5 bg-slate-950/20">
+        <div className="w-full px-6 py-3.5 flex items-center justify-between text-xs font-semibold text-zinc-300">
           <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-emerald-500" />
-            <span>Mapbox Integration</span>
+            <Settings className="w-4 h-4 text-emerald-500 animate-spin-slow" />
+            <span>Geo Map Engine</span>
           </div>
-          <span className="text-[10px] text-zinc-500 hover:text-zinc-400">
-            {mapboxToken ? "Connected" : "Demo Mode"}
+          <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 uppercase tracking-wider font-mono">
+            Leaflet FOSS
           </span>
-        </button>
-
-        {showSettings && (
-          <form onSubmit={handleTokenSubmit} className="px-6 pb-5 pt-2 flex flex-col gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] text-zinc-400 uppercase tracking-wider font-mono flex items-center gap-1">
-                <KeyRound className="w-3 h-3 text-emerald-400" />
-                Mapbox Access Token
-              </label>
-              <input
-                type="password"
-                placeholder="paste pk.eyJ1... token here"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950/80 border border-white/10 rounded-lg text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              {mapboxToken && (
-                <button
-                  type="button"
-                  onClick={handleClearToken}
-                  className="px-3 py-1.5 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Clear Token
-                </button>
-              )}
-              <button
-                type="submit"
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-xs font-semibold transition-colors"
-              >
-                Apply Token
-              </button>
-            </div>
-          </form>
-        )}
+        </div>
       </div>
 
       {/* Main Scrollable Content */}

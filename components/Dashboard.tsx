@@ -16,7 +16,6 @@ const Map = dynamic(() => import("@/components/Map"), {
 });
 
 export default function Dashboard() {
-  const [mapboxToken, setMapboxToken] = useState("");
   const [features, setFeatures] = useState<any[]>([]);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   
@@ -24,25 +23,6 @@ export default function Dashboard() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any | null>(null);
   const [activeStep, setActiveStep] = useState(0);
-
-  // Load Mapbox token from localStorage or environment variables on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem("agri_ai_mapbox_token");
-    if (savedToken) {
-      setMapboxToken(savedToken);
-    } else if (process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN) {
-      setMapboxToken(process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN);
-    }
-  }, []);
-
-  const handleTokenChange = (newToken: string) => {
-    setMapboxToken(newToken);
-    if (newToken) {
-      localStorage.setItem("agri_ai_mapbox_token", newToken);
-    } else {
-      localStorage.removeItem("agri_ai_mapbox_token");
-    }
-  };
 
   const handleDeleteFeature = (id: string) => {
     setFeatures((prev) => prev.filter((feat) => feat.id !== id));
@@ -95,8 +75,6 @@ export default function Dashboard() {
     <div className="flex h-screen w-screen overflow-hidden bg-[#090d16] text-[#f8fafc] font-sans">
       {/* Control Sidebar */}
       <Sidebar
-        mapboxToken={mapboxToken}
-        onTokenChange={handleTokenChange}
         features={features}
         onDeleteFeature={handleDeleteFeature}
         selectedFeatureId={selectedFeatureId}
@@ -111,7 +89,6 @@ export default function Dashboard() {
       {/* Interactive Map Surface */}
       <div className="flex-1 h-full relative overflow-hidden">
         <Map
-          mapboxToken={mapboxToken}
           features={features}
           onFeaturesChange={setFeatures}
           selectedFeatureId={selectedFeatureId}
