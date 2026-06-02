@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codebase Analysis: AgriAI Rice Field Analyzer</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-panel: rgba(15, 23, 42, 0.65);
+            --bg-card: rgba(30, 41, 59, 0.45);
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.3);
+            --border-subtle: rgba(255, 255, 255, 0.1);
+            --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            display: flex;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Sidebar Navigation */
+        nav.sidebar {
+            width: 280px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border-subtle);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            backdrop-filter: blur(12px);
+        }
+
+        nav.sidebar h2 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin-bottom: 2rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        nav.sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        nav.sidebar a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            display: block;
+        }
+
+        nav.sidebar a:hover {
+            color: var(--accent);
+        }
+
+        /* Main Content */
+        main {
+            margin-left: 320px;
+            padding: 3rem 4rem;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1, h2, h3 {
+            color: var(--text-primary);
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 0.5rem;
+            display: inline-block;
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            color: var(--accent);
+        }
+
+        p, li {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        ul, ol {
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        /* Code Blocks & Inline Code */
+        code {
+            font-family: var(--font-mono);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: #38bdf8;
+        }
+
+        pre {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: var(--text-primary);
+        }
+
+        /* Specific File References */
+        .ref {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.85em;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            nav.sidebar {
+                width: 200px;
+            }
+            main {
+                margin-left: 240px;
+                padding: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            nav.sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1.5rem;
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+            }
+            main {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <h2>AgriAI Audit</h2>
+        <ul>
+            <li><a href="#arch">1. Project Architecture</a></li>
+            <li><a href="#structure">2. Directory Structure</a></li>
+            <li><a href="#dataflow">3. Data Flow</a></li>
+            <li><a href="#deepdive">4. Deep-Dive Mechanisms</a></li>
+            <li><a href="#quality">5. Code Quality & Security</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <h1>Codebase Analysis Report</h1>
+        
+        <section id="arch">
+            <h2>1. Project Architecture Overview</h2>
+            <div class="card">
+                <p><strong>Architectural Pattern:</strong> Component-Based Single Page Application (Client-Side Rendering). The application utilizes a monolithic frontend structure where primary state is hoisted to a centralized container component.</p>
+                <p><strong>Tech Stack & Frameworks:</strong> Next.js (v16.2.6), React (v19.2.4).</p>
+                <p><strong>Styling:</strong> Tailwind CSS (v4) with custom glassmorphism overrides and Lucide React for iconography.</p>
+                <p><strong>Mapping & Geospatial Libraries:</strong></p>
+                <ul>
+                    <li><strong>Leaflet (v1.9.4):</strong> Powers interactive map rendering utilizing ESRI World Imagery and OpenStreetMap tile layers.</li>
+                    <li><strong>@geoman-io/leaflet-geoman-free:</strong> Enables advanced drawing, editing, and deletion of geospatial polygons on the map canvas.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section id="structure">
+            <h2>2. Directory Structure Mapping</h2>
+            <pre><code>frontend-hardcode-test/
+├── app/
+│   ├── page.tsx          # Application entry point; renders the Dashboard.
+│   └── globals.css       # Global styles, Tailwind imports, and Leaflet overrides.
+├── components/
+│   ├── Dashboard.tsx     # Central state manager (Orchestrator). Contains Map & Sidebar.
+│   ├── Map.tsx           # Leaflet Map Engine wrapper, Geoman tools, and NDVI grids.
+│   └── Sidebar.tsx       # UI controls, statistical reporting, and AI simulation triggers.
+├── utils/
+│   └── geoHelpers.ts     # Pure math utilities for area, perimeter, and centroid calculations.
+├── types/                # TypeScript type definitions.
+├── public/               # Static assets directory.
+├── package.json          # Node dependencies and project configuration.
+└── next.config.ts        # Next.js specific build configuration.</code></pre>
+        </section>
+
+        <section id="dataflow">
+            <h2>3. Data Flow & Component Interconnections</h2>
+            <p><strong>Centralized State:</strong> Application state is declared inside <span class="ref">[components/Dashboard.tsx:19-25]</span>. The <code>features</code> array acts as the single source of truth, holding all drawn polygons as standard GeoJSON objects.</p>
+            <p><strong>Lifecycle & Child Interconnections:</strong></p>
+            <ul>
+                <li><span class="ref">[components/Dashboard.tsx]</span> passes the <code>features</code> state and the <code>onFeaturesChange</code> callback down to <span class="ref">[components/Map.tsx]</span>.</li>
+                <li>When a user interacts with the map (drawing or editing via Leaflet Geoman), <span class="ref">[components/Map.tsx]</span> triggers <code>onFeaturesChange</code>, updating the parent <code>features</code> state.</li>
+                <li>The updated <code>features</code> array subsequently cascades down to <span class="ref">[components/Sidebar.tsx]</span>. The Sidebar relies on <span class="ref">[utils/geoHelpers.ts]</span> to compute the area and perimeter of the newly drawn fields dynamically.</li>
+                <li>AI analysis is initiated inside <span class="ref">[components/Sidebar.tsx]</span> which executes <code>handleStartAnalysis</code> provided by <span class="ref">[components/Dashboard.tsx]</span>. The resulting <code>analysisResults</code> cascade back to <span class="ref">[components/Map.tsx]</span>, driving the rendering of simulated NDVI grid overlays.</li>
+            </ul>
+        </section>
+
+        <section id="deepdive">
+            <h2>4. Deep-Dive Mechanism ("How X Happens")</h2>
+            
+            <h3>How does the Map Engine initialize?</h3>
+            <ol>
+                <li><strong>Dynamic Loading:</strong> To prevent Next.js Server-Side Rendering (SSR) issues referencing the <code>window</code> object, the Map component is loaded dynamically in <span class="ref">[components/Dashboard.tsx:8]</span> via <code>const Map = dynamic(() => import("@/components/Map"), { ssr: false });</code>.</li>
+                <li><strong>Mounting:</strong> Inside <span class="ref">[components/Map.tsx:112]</span>, a <code>useEffect</code> hook asynchronously imports <code>leaflet</code> and <code>@geoman-io/leaflet-geoman-free</code> on the client-side.</li>
+                <li><strong>Layer Setup:</strong> It instantiates <code>L.map</code> and injects <code>L.tileLayer</code> configurations for ESRI Satellite imagery <span class="ref">[components/Map.tsx:132]</span>.</li>
+                <li><strong>Drawing Controls:</strong> Finally, it configures Leaflet Geoman utilizing <code>mapInstance.pm.setGlobalOptions</code> <span class="ref">[components/Map.tsx:156]</span>, thereby enabling the interactive polygon construction UI.</li>
+            </ol>
+
+            <h3>How is a Rice Field Polygon drawn and synced?</h3>
+            <ol>
+                <li>The user clicks the custom "Draw" button defined in <span class="ref">[components/Map.tsx:476]</span>, which invokes <code>toggleDrawMode()</code> <span class="ref">[components/Map.tsx:422]</span> and activates <code>map.pm.enableDraw("Polygon")</code>.</li>
+                <li>When drawing is completed, Leaflet Geoman fires the <code>pm:create</code> event <span class="ref">[components/Map.tsx:185]</span>.</li>
+                <li>The attached event listener intercepts the newly created geometric layer, generates a unique <code>pmId</code>, and inserts it into a dedicated Leaflet <code>FeatureGroup</code> named <code>drawnItems</code> <span class="ref">[components/Map.tsx:191]</span>.</li>
+                <li>The cycle resolves when <code>syncFeatures()</code> is called <span class="ref">[components/Map.tsx:205]</span>, translating the Leaflet layers into standard GeoJSON and executing <code>onFeaturesChange(geojsonFeatures)</code> <span class="ref">[components/Map.tsx:180]</span> to push data upstream to the Dashboard.</li>
+            </ol>
+
+            <h3>How is the AI Simulation Data generated?</h3>
+            <ol>
+                <li>Clicking "Analyze Drawn Rice Fields" in <span class="ref">[components/Sidebar.tsx:248]</span> dispatches the <code>handleStartAnalysis()</code> function inside <span class="ref">[components/Dashboard.tsx:39]</span>.</li>
+                <li>A JavaScript <code>setInterval</code> orchestrates a mock pipeline step-by-step <span class="ref">[components/Dashboard.tsx:49]</span>, yielding a hardcoded JSON payload containing metrics like <code>ndviMean: 0.73</code>.</li>
+                <li>Updating the <code>analysisResults</code> state triggers a re-render of <span class="ref">[components/Map.tsx:389]</span>. A <code>useEffect</code> hook catches this and iterates over all drawn <code>features</code>.</li>
+                <li>The hook calls <code>generateNDVIGrid()</code> <span class="ref">[components/Map.tsx:24]</span>, which generates bounding boxes and coordinates steps. It checks spatial containment utilizing <code>isPointInPolygon()</code> <span class="ref">[components/Map.tsx:9]</span> and generates colored GeoJSON square cells symbolizing vegetative health, appending them to the active Leaflet Map <span class="ref">[components/Map.tsx:406]</span>.</li>
+            </ol>
+        </section>
+
+        <section id="quality">
+            <h2>5. Code Quality, Security & Recommendations</h2>
+            
+            <div class="card">
+                <h3>Code Quality & Technical Debt</h3>
+                <ul>
+                    <li><strong>Type Safety (<code>any</code> usage):</strong> Widespread use of implicit/explicit <code>any</code> types, heavily clustered inside <span class="ref">[components/Map.tsx]</span> for Leaflet layer loops (e.g., <code>drawnItems.eachLayer((layer: any) => ...)</code>).</li>
+                    <li><strong>Recommendation:</strong> Define precise TypeScript interfaces mapped to customized Leaflet layers extending <code>L.Layer</code> to properly expose <code>pmId</code> and <code>toGeoJSON()</code> properties.</li>
+                    <li><strong>Monolithic Component:</strong> <span class="ref">[components/Map.tsx]</span> approaches 600 lines. It assumes responsibilities for map bootstrap, react-syncing, custom control UI, and heavy mathematical NDVI generation.</li>
+                    <li><strong>Recommendation:</strong> Decouple the complex <code>generateNDVIGrid</code> function into a distinct utility file (e.g., <code>utils/ndviSim.ts</code>). Abstract the Leaflet Geoman synchronization event loop into a dedicated React hook (e.g., <code>useLeafletGeomanSync()</code>).</li>
+                </ul>
+
+                <h3>Performance Bottlenecks</h3>
+                <ul>
+                    <li><strong>Aggressive React Syncing:</strong> The protective <code>isSyncingRef</code> block in <span class="ref">[components/Map.tsx:300]</span> defends against infinite recursion nicely. However, the subsequent routine completely obliterates and reconstructs the GeoJSON arrays upon prop mutations.</li>
+                    <li><strong>Recommendation:</strong> Optimize the loop starting at <span class="ref">[components/Map.tsx:322]</span>. Implement targeted, surgical updates utilizing a diffing approach on <code>pmId</code> instead of sweeping layer clearance to maintain high framerates on complex polygon loads.</li>
+                </ul>
+
+                <h3>Security Vulnerabilities</h3>
+                <ul>
+                    <li>The system is an isolated, client-side React architecture leveraging mocked static data. Consequently, standard vulnerabilities like Server-Side Request Forgery (SSRF) or SQL Injection are structurally impossible in the current scope.</li>
+                    <li>If migrated to a production API backend, the GeoJSON serialization routines inside <span class="ref">[components/Map.tsx]</span> and <span class="ref">[components/Sidebar.tsx:75]</span> must be hardened to strictly sanitize bounding coordinates against arbitrary code injection payloads before network egress.</li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>

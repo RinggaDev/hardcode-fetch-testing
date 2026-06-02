@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+#knowledge base
+codebase_analysist.html
+codebase_analysist.md
+

@@ -1,0 +1,48 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "areaSqMeters": 124791.1614911774,
+        "areaHectares": 12.47911614911774,
+        "perimeterMeters": 1458.0932657949484,
+        "centroidLngLat": [
+          105.24579800000001,
+          10.129844
+        ],
+        "cropStage": "Vegetative / Tillering",
+        "estimatedYieldTons": "67.4",
+        "ndviHealthIndex": 0.73
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              105.246336,
+              10.13203
+            ],
+            [
+              105.243257,
+              10.129258
+            ],
+            [
+              105.245343,
+              10.127716
+            ],
+            [
+              105.248256,
+              10.130372
+            ],
+            [
+              105.246336,
+              10.13203
+            ]
+          ]
+        ]
+      },
+      "id": "leaflet-1780313876023-yvgbh140d"
+    }
+  ]
+}
