@@ -1,28 +1,25 @@
-# AgriAI: Rice Field Analyzer
+<img width="1292" height="610" alt="image" src="https://github.com/user-attachments/assets/7573799d-8f25-4dd5-9fc5-5b708f84319b" />
+<img width="1919" height="1077" alt="image" src="https://github.com/user-attachments/assets/ecce34f9-718b-4a19-83a0-79aebe04cff1" />
 
-AgriAI is a specialized geographic intelligence platform prototype designed for agricultural monitoring, specifically focused on rice field analysis. It provides an interactive interface for defining field boundaries, simulating satellite-based AI analysis, and managing agricultural spatial data.
+# AgriAI: GeoJSON Data Contract Standardizer (MVP)
 
-![AgriAI Dashboard](public/next.svg) <!-- Replace with actual screenshot if available -->
+AgriAI is a targeted MVP frontend application designed to act as a **Cooperative Data Contract Integrity System**. It is *not* a standalone full-stack GIS platform. Instead, it serves as a specialized, standardized drawing and validation interface that prepares clean, backend-ready GeoJSON payloads for a downstream LLM processing engine.
 
-## 🌟 Key Features
+This tool bridges the gap between human operators (who draw agricultural field boundaries) and a deterministic backend data pipeline, ensuring all spatial data passes strict validation rules before inference.
 
-### 🗺️ Interactive Precision Mapping
-- **Boundary Definition:** Use advanced polygon drawing tools powered by Leaflet Geoman to accurately define rice field boundaries.
-- **Real-time Metrics:** Instant calculation of field area (square meters/hectares) and perimeter as you draw.
-- **Dual Map Views:** Seamlessly toggle between high-resolution Satellite imagery (Esri) and OpenStreetMap Outdoors view.
+## 🌟 Core Concept: The Data Contract
 
-### 🧠 AI Analysis Simulation
-- **Multi-step Pipeline:** Simulated deep learning inference pipeline:
-  - Sentinel-2 multi-spectral band acquisition.
-  - NDVI (Normalized Difference Vegetation Index) computation.
-  - Rice field segmentation neural net execution.
-  - Automated statistics and report generation.
-- **Dynamic NDVI Overlays:** Generates a spatial health grid within drawn boundaries, visualizing crop vitality from "Bare Soil" to "Excellent Heading".
-- **Predictive Analytics:** Provides estimated yield (tons/ha), soil moisture levels, and projected harvest windows based on growth cycle models.
+Our backend pipeline expects a standard, strictly formatted spatial payload. This frontend guarantees:
+- **RFC 7946 GeoJSON Compliance:** Valid `FeatureCollection` structures.
+- **Metadata Injection:** Automatic embedding of variables like `crop_type` (e.g., Padi, Jagung, Tebu).
+- **Geometry Verification:** Ensuring polygon rings are closed, coordinate ordering is strictly `[Longitude, Latitude]`, and drawing distances stay within valid bounds.
 
-### 📊 Data Management & Export
-- **Field Inventory:** Manage multiple field boundaries from a dedicated sidebar.
-- **GeoJSON Export:** Export your drawn fields and enriched analysis results (area, centroid, health indices) as standard GeoJSON vector data for use in GIS software.
+## ✨ Key Features
+
+- **Precision Drawing Tools:** Built on Leaflet Geoman to draw strict spatial boundaries (Polygons) or pinpoint fallback locations (Markers).
+- **Live Validation & Specs Verification:** Real-time checking of polygon closure loop, coordinate order, and geometry standards (Blueprint A/Polygon, Blueprint B/Point).
+- **Live Payload Construction:** A dedicated UI panel that auto-generates and displays the exact JSON payload ready for `POST` transmission.
+- **Seamless API Integration:** Includes built-in mechanisms to `POST` directly to a local backend API (e.g., FastAPI at `http://localhost:8000/api/analyze`) or export the standard `.geojson` artifact manually.
 
 ## 🛠️ Tech Stack
 
@@ -39,9 +36,8 @@ AgriAI is a specialized geographic intelligence platform prototype designed for 
 hardcode-fetch-frontend/
 ├── app/                # Next.js App Router entry points
 ├── components/         # React components (Dashboard, Map, Sidebar)
-├── utils/              # Geospatial helper functions (Area, distance calculations)
-├── assets/geojson/     # Sample GeoJSON data
-├── public/             # Static assets
+├── utils/              # Geospatial validation and formatting logic (geoHelpers.ts)
+├── assets/geojson/     # Sample payload data
 └── types/              # TypeScript definitions
 ```
 
@@ -55,7 +51,7 @@ hardcode-fetch-frontend/
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/RinggaDev/hardcode-fetch-testing.git
    ```
 
 2. Install dependencies:
@@ -72,11 +68,10 @@ hardcode-fetch-frontend/
 
 ## 📝 Usage Guide
 
-1. **Draw a Field:** Click the 🖊️ (Edit) icon in the map controls and click on the map to define a polygon. Double-click or click the first point to finish.
-2. **Select & Review:** Click on a drawn boundary to see its metrics in the sidebar.
-3. **Analyze:** Click "Analyze Drawn Rice Fields" in the sidebar to run the simulated AI pipeline.
-4. **Visualize:** View the generated NDVI grid overlay on the map.
-5. **Export:** Once analysis is complete, use the "Export GeoJSON" button to save your data.
+1. **Set Target Crop:** Select the commodity type (Padi, Jagung, Tebu) in the sidebar control panel.
+2. **Draw a Boundary:** Click the 🖊️ (Edit) icon on the map to draw a field polygon, or use the 📍 (Marker) for a coordinate pin.
+3. **Verify Contract:** Review the "Specification Verification" section in the sidebar to ensure the geometry passes the data contract rules.
+4. **Export / Analyze:** Copy the standard JSON payload, download the `.geojson` file, or simulate the backend API POST directly from the dashboard.
 
 ---
-*Developed for agricultural research and precision farming visualization.*
+*Built as the standardized frontend ingestion layer for cooperative data processing models.*

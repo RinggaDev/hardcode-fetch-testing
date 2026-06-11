@@ -15,14 +15,18 @@ const Map = dynamic(() => import("@/components/Map"), {
   ),
 });
 
+import { formatToBackendGeoJSON } from "@/utils/geoHelpers";
+
 export default function Dashboard() {
   const [features, setFeatures] = useState<any[]>([]);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   
-  // AI Simulation States
+  // Crop & API States
+  const [cropType, setCropType] = useState<string>("Padi");
+  const [apiUrl, setApiUrl] = useState<string>("http://localhost:8000/api/analyze");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResults, setAnalysisResults] = useState<any | null>(null);
-  const [activeStep, setActiveStep] = useState(0);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const handleDeleteFeature = (id: string) => {
     setFeatures((prev) => prev.filter((feat) => feat.id !== id));
@@ -35,40 +39,67 @@ export default function Dashboard() {
     setSelectedFeatureId(id);
   };
 
-  // Run simulated crop detection AI pipeline
-  const handleStartAnalysis = () => {
-    if (features.length === 0) return;
+  // POST standardized GeoJSON data to real backend API
+  const handleStartAnalysis = async () => {
+    const activeFeat = features.find(f => f.id === selectedFeatureId) || features[features.length - 1];
+    if (!activeFeat) return;
     
     setIsAnalyzing(true);
+    setApiError(null);
     setAnalysisResults(null);
-    setActiveStep(0);
 
-    const intervalTime = 1250; // 1.25s per stepper task
-    let step = 0;
+    const payload = formatToBackendGeoJSON(activeFeat, cropType);
 
-    const interval = setInterval(() => {
-      step += 1;
-      if (step <= 3) {
-        setActiveStep(step);
-      } else {
-        clearInterval(interval);
-        setIsAnalyzing(false);
-        setAnalysisResults({
-          analyzedAt: new Date().toISOString(),
-          ndviMean: 0.73,
-          healthStatus: "Excellent",
-          stage: "Vegetative / Tillering",
-          yieldTonsPerHa: 5.4,
-          soilMoisturePercent: 62
-        });
+    try {
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
       }
-    }, intervalTime);
+
+      const data = await response.json();
+      setAnalysisResults(data);
+    } catch (err: any) {
+      console.error("API error during analysis:", err);
+      setApiError(err.message || "Failed to connect to backend model API. Make sure your local FastAPI server is running.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Fallback to load a high-quality mock response offline
+  const handleLoadMockResponse = () => {
+    setIsAnalyzing(true);
+    setApiError(null);
+    setAnalysisResults(null);
+    
+    setTimeout(() => {
+      setIsAnalyzing(false);
+      setAnalysisResults({
+        guide: [
+          "Maintain water levels at 2-5 cm depth during active tillering to suppress weed germination.",
+          "Apply recommended nitrogen top-dressing at early panicle initiation.",
+          "Conduct routine scout monitoring for Blast Disease (Pyricularia oryzae) symptoms under high relative humidity (>85%).",
+          "Ensure efficient drainage lines to keep soil moisture levels from exceeding 75% capacity."
+        ],
+        prediction: {
+          harvest_forecast: "September 12 – September 20, 2026",
+          future_conditions: "Centroid environmental indicators suggest optimal canopy growth (NDVI ~0.73). However, the upcoming 7-day Open-Meteo forecast indicates a high relative humidity window. Monitoring is advised to prevent early blast disease outbreaks and biological vulnerability."
+        }
+      });
+    }, 800);
   };
 
   const handleResetAnalysis = () => {
     setAnalysisResults(null);
+    setApiError(null);
     setIsAnalyzing(false);
-    setActiveStep(0);
   };
 
   return (
@@ -83,7 +114,13 @@ export default function Dashboard() {
         onStartAnalysis={handleStartAnalysis}
         analysisResults={analysisResults}
         onResetAnalysis={handleResetAnalysis}
-        activeStep={activeStep}
+        cropType={cropType}
+        onCropTypeChange={setCropType}
+        apiUrl={apiUrl}
+        onApiUrlChange={setApiUrl}
+        apiError={apiError}
+        onClearError={() => setApiError(null)}
+        onLoadMockResponse={handleLoadMockResponse}
       />
 
       {/* Interactive Map Surface */}

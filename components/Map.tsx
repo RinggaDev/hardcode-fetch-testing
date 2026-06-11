@@ -1,84 +1,10 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Edit3, Trash2, ZoomIn, ZoomOut, Compass, Info, Layers } from "lucide-react";
-import { calculatePolygonCentroid } from "@/utils/geoHelpers";
+import { Edit3, Trash2, ZoomIn, ZoomOut, Compass, Info, Layers, MapPin, AlertTriangle } from "lucide-react";
+import { calculatePolygonCentroid, getFeatureCentroid, validateDrawingDistances } from "@/utils/geoHelpers";
 
-// Point-in-polygon helper for AI analysis grid overlay
-function isPointInPolygon(point: number[], polygon: number[][]): boolean {
-  const x = point[0], y = point[1];
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0], yi = polygon[i][1];
-    const xj = polygon[j][0], yj = polygon[j][1];
-    const intersect = ((yi > y) !== (yj > y)) &&
-      (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
 
-// Generate grid cells inside a polygon for simulated NDVI overlay
-function generateNDVIGrid(polygonCoords: number[][][], cellSizeDeg = 0.0005): any[] {
-  const gridCells: any[] = [];
-  const outerRing = polygonCoords[0];
-  
-  // Find bounding box
-  let minLng = Infinity, maxLng = -Infinity;
-  let minLat = Infinity, maxLat = -Infinity;
-  
-  for (const pt of outerRing) {
-    if (pt[0] < minLng) minLng = pt[0];
-    if (pt[0] > maxLng) maxLng = pt[0];
-    if (pt[1] < minLat) minLat = pt[1];
-    if (pt[1] > maxLat) maxLat = pt[1];
-  }
-  
-  // Generate grid points and check if they are inside the polygon
-  for (let lng = minLng; lng < maxLng; lng += cellSizeDeg) {
-    for (let lat = minLat; lat < maxLat; lat += cellSizeDeg) {
-      const cellCenter = [lng + cellSizeDeg / 2, lat + cellSizeDeg / 2];
-      
-      if (isPointInPolygon(cellCenter, outerRing)) {
-        // Generate random NDVI between 0.2 (poor/soil) and 0.9 (very healthy rice)
-        // Group fields into spatial clusters using a noise-like function
-        const noise = Math.sin(lng * 2000) * Math.cos(lat * 2000);
-        const ndvi = 0.55 + noise * 0.35;
-        
-        // Define color based on NDVI value
-        let color = "#ef4444"; // Red (stressed / bare)
-        let healthLabel = "Bare Soil / Stressed";
-        if (ndvi > 0.4 && ndvi <= 0.6) {
-          color = "#eab308"; // Yellow (moderate / tillering)
-          healthLabel = "Moderate / Tillering";
-        } else if (ndvi > 0.6 && ndvi <= 0.75) {
-          color = "#22c55e"; // Light Green (healthy / vegetative)
-          healthLabel = "Healthy / Vegetative";
-        } else if (ndvi > 0.75) {
-          color = "#15803d"; // Dark Green (excellent / flowering)
-          healthLabel = "Excellent / Heading";
-        }
-        
-        gridCells.push({
-          type: "Feature",
-          properties: { ndvi, color, healthLabel },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[
-              [lng, lat],
-              [lng + cellSizeDeg, lat],
-              [lng + cellSizeDeg, lat + cellSizeDeg],
-              [lng, lat + cellSizeDeg],
-              [lng, lat]
-            ]]
-          }
-        });
-      }
-    }
-  }
-  
-  return gridCells;
-}
 
 interface MapProps {
   features: any[];
@@ -105,11 +31,20 @@ export default function Map({
   
   // Map control states
   const [mapStyle, setMapStyle] = useState<"satellite" | "outdoors">("satellite");
-  const [drawMode, setDrawMode] = useState<"select" | "draw">("select");
+  const [drawMode, setDrawMode] = useState<"select" | "draw-polygon" | "draw-marker">("select");
   const [showHelp, setShowHelp] = useState(true);
   
-  const [zoomState, setZoomState] = useState(13);
-  const [centerState, setCenterState] = useState<[number, number]>([105.1258, 10.1224]); // Mekong Delta [lng, lat]
+  const [zoomState, setZoomState] = useState(18);
+  const [centerState, setCenterState] = useState<[number, number]>([112.9064, -7.6413]); // Default target coord [lng, lat]
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+
+  // Auto-clear warning alerts
+  useEffect(() => {
+    if (warningMessage) {
+      const timer = setTimeout(() => setWarningMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [warningMessage]);
   
   // Flag to avoid infinite loops during state synchronization
   const isSyncingRef = useRef(false);
@@ -131,6 +66,10 @@ export default function Map({
       mapInstance = L.map(mapContainerRef.current, {
         center: [centerState[1], centerState[0]],
         zoom: zoomState,
+        minZoom: 5,
+        maxZoom: 20,
+        maxBounds: L.latLngBounds([-11.0, 95.0], [6.0, 141.0]), // Limit viewport to Indonesia overall
+        maxBoundsViscosity: 1.0, // Strict viewport bounce configuration
         zoomControl: false,
         attributionControl: true,
       });
@@ -139,11 +78,15 @@ export default function Map({
       
       // Define tile layers
       const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+        attribution: "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+        maxZoom: 20,
+        maxNativeZoom: 18 // Auto-scale tiles at zooms 19 & 20 to avoid gray blank grids
       });
       
       const outdoors = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+        maxZoom: 20,
+        maxNativeZoom: 19 // Auto-scale tiles at zoom 20 to avoid gray blank grids
       });
       
       // Set initial style
@@ -189,6 +132,21 @@ export default function Map({
       // Listen to Geoman events
       mapInstance.on("pm:create", (e: any) => {
         const layer = e.layer;
+        
+        // Perform maximum drawing distance validation on creation
+        const geojson = layer.toGeoJSON();
+        if (geojson.geometry && geojson.geometry.type === "Polygon") {
+          const coords = geojson.geometry.coordinates[0];
+          const validation = validateDrawingDistances(coords);
+          if (!validation.valid) {
+            setWarningMessage(validation.reason || "Rejected: Drawing exceeds maximum distance bounds.");
+            mapInstance.removeLayer(layer);
+            mapInstance.pm.disableDraw();
+            setDrawMode("select");
+            return;
+          }
+        }
+        
         if (!layer.pmId) {
           layer.pmId = `leaflet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         }
@@ -196,8 +154,23 @@ export default function Map({
         drawnItems.addLayer(layer);
         
         // Listeners for geometry modification
-        layer.on("pm:edit", syncFeatures);
-        layer.on("pm:dragend", syncFeatures);
+        const handleModification = () => {
+          const modGeoJSON = layer.toGeoJSON();
+          if (modGeoJSON.geometry && modGeoJSON.geometry.type === "Polygon") {
+            const modCoords = modGeoJSON.geometry.coordinates[0];
+            const modValidation = validateDrawingDistances(modCoords);
+            if (!modValidation.valid) {
+              setWarningMessage(modValidation.reason || "Rejected: Shape is too large.");
+              mapInstance.removeLayer(layer);
+              syncFeatures();
+              return;
+            }
+          }
+          syncFeatures();
+        };
+
+        layer.on("pm:edit", handleModification);
+        layer.on("pm:dragend", handleModification);
         
         // Selection click handler
         layer.on("click", (clickEvent: any) => {
@@ -315,33 +288,53 @@ export default function Map({
     
     // Add/Update existing layers
     features.forEach((feat) => {
-      if (!feat.geometry || feat.geometry.type !== "Polygon") return;
+      if (!feat.geometry || (feat.geometry.type !== "Polygon" && feat.geometry.type !== "Point")) return;
       
       const existingLayer = currentLayersMap.get(feat.id);
       if (existingLayer) {
         const isSelected = feat.id === selectedFeatureId;
-        existingLayer.setStyle({
-          color: isSelected ? "#10b981" : "rgba(255, 255, 255, 0.4)",
-          fillColor: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
-          fillOpacity: isSelected ? 0.15 : 0.05,
-          weight: isSelected ? 3 : 1.5,
-        });
+        if (existingLayer.setStyle) {
+          existingLayer.setStyle({
+            color: isSelected ? "#10b981" : "rgba(255, 255, 255, 0.4)",
+            fillColor: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
+            fillOpacity: isSelected ? 0.15 : 0.05,
+            weight: isSelected ? 3 : 1.5,
+          });
+        } else {
+          const el = existingLayer.getElement?.();
+          if (el) {
+            el.style.filter = isSelected 
+              ? "drop-shadow(0px 0px 8px #10b981) hue-rotate(40deg)" 
+              : "none";
+          }
+        }
       } else {
         const geojsonLayer = L.geoJSON(feat);
         geojsonLayer.eachLayer((layer: any) => {
           layer.pmId = feat.id || `leaflet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           
           const isSelected = layer.pmId === selectedFeatureId;
-          layer.setStyle({
-            color: isSelected ? "#10b981" : "rgba(255, 255, 255, 0.4)",
-            fillColor: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
-            fillOpacity: isSelected ? 0.15 : 0.05,
-            weight: isSelected ? 3 : 1.5,
-          });
+          if (layer.setStyle) {
+            layer.setStyle({
+              color: isSelected ? "#10b981" : "rgba(255, 255, 255, 0.4)",
+              fillColor: isSelected ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.05)",
+              fillOpacity: isSelected ? 0.15 : 0.05,
+              weight: isSelected ? 3 : 1.5,
+            });
+          } else {
+            setTimeout(() => {
+              const el = layer.getElement?.();
+              if (el) {
+                el.style.filter = isSelected 
+                  ? "drop-shadow(0px 0px 8px #10b981) hue-rotate(40deg)" 
+                  : "none";
+              }
+            }, 100);
+          }
 
           drawnItems.addLayer(layer);
 
-          const syncFeatures = () => {
+          const syncFeaturesInner = () => {
             if (isSyncingRef.current) return;
             isSyncingRef.current = true;
             const geojsonFeatures: any[] = [];
@@ -354,8 +347,8 @@ export default function Map({
             isSyncingRef.current = false;
           };
 
-          layer.on("pm:edit", syncFeatures);
-          layer.on("pm:dragend", syncFeatures);
+          layer.on("pm:edit", syncFeaturesInner);
+          layer.on("pm:dragend", syncFeaturesInner);
           layer.on("click", (clickEvent: any) => {
             L.DomEvent.stopPropagation(clickEvent);
             onSelectFeature(layer.pmId);
@@ -373,72 +366,45 @@ export default function Map({
     if (!map || !selectedFeatureId) return;
     
     const feat = features.find(f => f.id === selectedFeatureId);
-    if (!feat || !feat.geometry || feat.geometry.type !== "Polygon") return;
+    if (!feat || !feat.geometry) return;
     
-    const coords = feat.geometry.coordinates[0];
-    const centroid = calculatePolygonCentroid(coords);
-    
+    const centroid = getFeatureCentroid(feat);
     map.panTo([centroid[1], centroid[0]]);
-  }, [selectedFeatureId]);
+  }, [selectedFeatureId, features]);
 
-  // 5. Synchronize NDVI grids when analysis results are generated
+  // Cancel drawing if zoom level drops below 16
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    
-    const L = (window as any).L;
-    if (!L) return;
-
-    if (ndviLayerRef.current) {
-      map.removeLayer(ndviLayerRef.current);
-      ndviLayerRef.current = null;
+    if (zoomState < 16 && drawMode !== "select") {
+      map.pm.disableDraw();
+      setDrawMode("select");
+      setWarningMessage("Drawing cancelled. You must stay close to the surface (Zoom >= 16).");
     }
-    
-    if (analysisResults && features.length > 0) {
-      const cells: any[] = [];
-      for (const feat of features) {
-        if (feat.geometry?.type === "Polygon") {
-          cells.push(...generateNDVIGrid(feat.geometry.coordinates));
-        }
-      }
-      
-      if (cells.length > 0) {
-        const ndviGeoJSON = {
-          type: "FeatureCollection",
-          features: cells
-        };
+  }, [zoomState, drawMode]);
 
-        const ndviLayer = L.geoJSON(ndviGeoJSON as any, {
-          style: (feature: any) => {
-            return {
-              fillColor: feature.properties.color,
-              fillOpacity: 0.5,
-              color: "rgba(255, 255, 255, 0.15)",
-              weight: 0.5,
-            };
-          }
-        });
-
-        ndviLayer.addTo(map);
-        ndviLayerRef.current = ndviLayer;
-      }
-    }
-  }, [analysisResults, features]);
-
-  // Toggle Draw Action
-  const toggleDrawMode = () => {
+  // Start drawing a specific geometry type
+  const startDrawing = (type: "Polygon" | "Marker") => {
     const map = mapRef.current;
     if (!map) return;
     
-    if (drawMode === "select") {
-      map.pm.enableDraw("Polygon", {
+    // Enforce drawing limit zoom level: must be >= 16 (close to the surface)
+    if (zoomState < 16) {
+      setWarningMessage("Please zoom in closer to the surface (Min Zoom 16) to draw boundaries.");
+      return;
+    }
+    
+    const targetMode = type === "Polygon" ? "draw-polygon" : "draw-marker";
+    
+    if (drawMode === targetMode) {
+      map.pm.disableDraw();
+      setDrawMode("select");
+    } else {
+      map.pm.enableDraw(type, {
         snappable: true,
         snapDistance: 20,
       });
-      setDrawMode("draw");
-    } else {
-      map.pm.disableDraw();
-      setDrawMode("select");
+      setDrawMode(targetMode);
     }
   };
 
@@ -484,8 +450,20 @@ export default function Map({
       
       {/* Leaflet Map Div */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full z-0" />
+
+      {/* Warning Notification Banner */}
+      {warningMessage && (
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 animate-fadeIn pointer-events-none">
+          <div className="glass-card flex items-center gap-3 px-5 py-3 border border-red-500/30 bg-red-950/80 rounded-2xl shadow-[0_4px_30px_rgba(239,68,68,0.2)] max-w-sm pointer-events-auto">
+            <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 animate-bounce" />
+            <div className="text-xs text-red-200 font-medium leading-normal">
+              {warningMessage}
+            </div>
+          </div>
+        </div>
+      )}
       
-      {/* Satellite Scanline Animation overlay during AI analysis */}
+      {/* Satellite Scanline Animation overlay during active processing */}
       {isAnalyzing && (
         <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden bg-emerald-950/5">
           <div className="absolute top-0 left-0 w-full h-24 scanner-line" />
@@ -498,21 +476,33 @@ export default function Map({
         {/* Draw Buttons */}
         <div className="glass-card flex flex-col gap-1 p-1 rounded-xl shadow-2xl">
           <button
-            onClick={toggleDrawMode}
-            title={drawMode === "select" ? "Draw Rice Field Boundary" : "Cancel Drawing"}
+            onClick={() => startDrawing("Polygon")}
+            title={drawMode === "draw-polygon" ? "Cancel Polygon" : "Draw Area Polygon (Primary)"}
             className={`p-3 rounded-lg transition-all ${
-              drawMode === "draw"
+              drawMode === "draw-polygon"
                 ? "bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
                 : "text-zinc-300 hover:bg-white/5 hover:text-white"
             }`}
           >
             <Edit3 className="w-5 h-5" />
           </button>
+
+          <button
+            onClick={() => startDrawing("Marker")}
+            title={drawMode === "draw-marker" ? "Cancel Marker" : "Place Coordinate Pin (Point Fallback)"}
+            className={`p-3 rounded-lg transition-all ${
+              drawMode === "draw-marker"
+                ? "bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                : "text-zinc-300 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <MapPin className="w-5 h-5" />
+          </button>
           
           <button
             onClick={deleteSelected}
             disabled={!selectedFeatureId}
-            title="Delete Selected Boundary"
+            title="Delete Selected Feature"
             className={`p-3 rounded-lg transition-all ${
               selectedFeatureId
                 ? "text-red-400 hover:bg-red-500/10"
@@ -571,11 +561,10 @@ export default function Map({
             <h4 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Map controls</h4>
           </div>
           <ul className="text-xs space-y-1.5 text-zinc-400 list-disc list-inside">
-            <li>Click the <Edit3 className="w-3.5 h-3.5 inline text-emerald-400 mx-0.5" /> icon to start drawing.</li>
-            <li>Click on the map to place polygon nodes.</li>
-            <li>Click the starting node or double-click to finish.</li>
-            <li>Click on a field boundary to select it.</li>
-            <li>Click and drag nodes or boundaries to edit.</li>
+            <li>Click <Edit3 className="w-3.5 h-3.5 inline text-emerald-400 mx-0.5" /> to draw an area boundary.</li>
+            <li>Click <MapPin className="w-3.5 h-3.5 inline text-emerald-400 mx-0.5" /> to place a fallback coordinate pin.</li>
+            <li>Click and drag nodes or markers to edit.</li>
+            <li>Click on any shape or pin to select it.</li>
             <li>Click the trash icon to delete selection.</li>
           </ul>
         </div>

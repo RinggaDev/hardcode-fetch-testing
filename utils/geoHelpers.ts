@@ -94,3 +94,93 @@ export function formatDistance(distanceMeters: number): string {
   }
   return `${distanceMeters.toFixed(0)} m`;
 }
+
+/**
+ * Gets the centroid/coordinates for any feature (Polygon or Point).
+ */
+export function getFeatureCentroid(feat: any): [number, number] {
+  if (!feat || !feat.geometry) return [105.1258, 10.1224]; // default centroid
+  
+  if (feat.geometry.type === "Point") {
+    return feat.geometry.coordinates as [number, number];
+  }
+  
+  if (feat.geometry.type === "Polygon") {
+    const coords = feat.geometry.coordinates[0];
+    return calculatePolygonCentroid(coords);
+  }
+  
+  return [105.1258, 10.1224];
+}
+
+/**
+ * Formats a single drawn feature and crop type into the backend's standardized GeoJSON format.
+ */
+export function formatToBackendGeoJSON(feat: any, cropType: string): any {
+  if (!feat) return null;
+
+  const geometry = JSON.parse(JSON.stringify(feat.geometry));
+
+  if (geometry.type === "Polygon" && geometry.coordinates && geometry.coordinates[0]) {
+    const ring = geometry.coordinates[0];
+    if (ring.length > 0) {
+      const first = ring[0];
+      const last = ring[ring.length - 1];
+      if (first[0] !== last[0] || first[1] !== last[1]) {
+        ring.push([first[0], first[1]]);
+      }
+    }
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {
+          crop_type: cropType
+        },
+        geometry: geometry
+      }
+    ]
+  };
+}
+
+/**
+ * Validates if any segment length (distance between adjacent points) of a polygon exceeds maxSegmentLength.
+ * Also checks if the total perimeter exceeds maxTotalPerimeter.
+ */
+export function validateDrawingDistances(
+  coordinates: number[][],
+  maxSegmentLength = 500,
+  maxTotalPerimeter = 2000
+): { valid: boolean; reason?: string } {
+  if (!coordinates || coordinates.length < 2) {
+    return { valid: true };
+  }
+
+  let totalDistance = 0;
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const p1 = coordinates[i];
+    const p2 = coordinates[i + 1];
+    const distance = calculateDistance(p1, p2);
+    
+    if (distance > maxSegmentLength) {
+      return { 
+        valid: false, 
+        reason: `Segment ${i + 1} is too long (${distance.toFixed(0)}m). Max segment length: ${maxSegmentLength}m.` 
+      };
+    }
+    totalDistance += distance;
+  }
+
+  if (totalDistance > maxTotalPerimeter) {
+    return {
+      valid: false,
+      reason: `Perimeter is too long (${totalDistance.toFixed(0)}m). Max perimeter: ${maxTotalPerimeter}m.`
+    };
+  }
+
+  return { valid: true };
+}
+
